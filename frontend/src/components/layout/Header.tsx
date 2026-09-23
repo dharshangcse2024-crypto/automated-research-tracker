@@ -1,16 +1,9 @@
-import { Bell, User, LogOut } from 'lucide-react';
+import { Bell, User } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 export function Header() {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
-  };
+  const { user } = useAuth();
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
@@ -25,15 +18,11 @@ export function Header() {
             <span className="text-sm font-medium text-gray-700">
               {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
             </span>
-            <span className="text-xs text-gray-500">{user?.email}</span>
+            <span className="text-xs text-gray-500">{user?.email || 'Anonymous'}</span>
           </div>
           <div className="h-8 w-8 overflow-hidden rounded-full bg-blue-100 flex items-center justify-center border border-blue-200 text-blue-700">
             <User className="h-4 w-4" />
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-gray-500 hover:text-red-600 transition-colors ml-2" title="Sign out">
-            <LogOut className="h-5 w-5" />
-            <span className="sr-only">Sign out</span>
-          </Button>
         </div>
       </div>
     </header>
