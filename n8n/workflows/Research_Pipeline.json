@@ -1,0 +1,165 @@
+{
+  "name": "Automated Research Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "e242a420-5c68-4507-bfd1-4e76c1ab4131",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env[\"BACKEND_API_URL\"] }}/api/topics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "834c718b-5777-4592-8db4-b250269f8263",
+      "name": "Fetch Active Topics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "76d8b31a-e9fa-45b6-bfb6-5f10668b8e05",
+      "name": "Split Topics",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.crossref.org/works?query={{ $json.keywords.join('+') }}&select=DOI,title,abstract,author,URL,published-print&rows=5",
+        "options": {}
+      },
+      "id": "dbf24b3b-8526-4b2f-a032-15f9b4fb712a",
+      "name": "Search Crossref",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const topicId = $('Split Topics').item.json.id;\nconst articles = [];\n\nif (items[0].json.message && items[0].json.message.items) {\n  for (const item of items[0].json.message.items) {\n    let authors = '';\n    if (item.author) {\n       authors = item.author.map(a => `${a.given || ''} ${a.family || ''}`).join(', ');\n    }\n    \n    articles.push({\n      title: item.title ? item.title[0] : 'Unknown Title',\n      authors: authors,\n      abstract: item.abstract || '',\n      url: item.URL || '',\n      source: 'Crossref',\n      external_id: item.DOI || '',\n      doi: item.DOI || '',\n      published_date: (item['published-print'] && item['published-print']['date-parts']) ? `${item['published-print']['date-parts'][0][0]}-01-01` : null\n    });\n  }\n}\n\nreturn {\n  json: {\n    topic_id: topicId,\n    articles: articles\n  }\n};"
+      },
+      "id": "18f2f2ac-0c53-48b4-9370-d8a01a3554e2",
+      "name": "Format Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env[\"BACKEND_API_URL\"] }}/api/research/collect",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic_id\": \"{{ $json.topic_id }}\",\n  \"articles\": {{ JSON.stringify($json.articles) }}\n}",
+        "options": {}
+      },
+      "id": "97e6417d-176c-48be-850f-217208d2495d",
+      "name": "Send to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Topics": {
+      "main": [
+        [
+          {
+            "node": "Split Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Topics": {
+      "main": [
+        [
+          {
+            "node": "Search Crossref",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Crossref": {
+      "main": [
+        [
+          {
+            "node": "Format Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Payload": {
+      "main": [
+        [
+          {
+            "node": "Send to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}
